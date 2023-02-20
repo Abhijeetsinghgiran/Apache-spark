@@ -1,0 +1,139 @@
+wget https://www.dropbox.com/s/vrqv1rcwfox1u10/cars.csv?dl=0
+mv cars.csv?dl=0 cars
+hadoop fs -mkdir /BigData
+hadoop fs -copyFromLocal cars.csv?dl=0 /BigData/cars
+:paste
+val used_cars= spark
+  .read.format("csv")
+  .option("header", "true")
+  .load("hdfs://10.128.0.7:8020/BigData/cars")
+
+
+import org.apache.spark.sql.functions.{expr, col, column,avg}
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.types._
+ 
+val schema = StructType(Array(
+         
+         StructField("Maker",StringType, true),
+         StructField("Model",StringType, true),
+         StructField("Mileage",FloatType,true),
+         StructField("Manufacture_year",IntegerType,true),
+         StructField("Engine_displacement",IntegerType,true),
+         StructField("Engine_power",IntegerType,true),
+         StructField("Body_type",StringType,true),
+         StructField("Color_slug",StringType,true),
+         StructField("Stk_year",IntegerType,true),
+         StructField("Transmission",StringType ,true),
+         StructField("Door_count",IntegerType,true),
+         StructField("Seat_count",IntegerType,true),
+         StructField("Fuel_type",StringType,true),
+         StructField("Date_created",DateType,true),
+         StructField("Date_last_seen",DateType,true),
+         StructField("Price_eur",FloatType,true)))
+val used_cars = spark
+  .read.format("csv")
+  .option("header", "true")
+  .schema(schema)
+  .load("hdfs://10.128.0.7:8020/BigData/cars")
+Q2)
+ val used_cars_date = used_cars.select(col("Date_created"),col("Date_last_seen"))
+ used_cars_date.show(10)
+Q4)
+# to find null value
+import org.apache.spark.sql.functions.{sum, col}
+ used_cars.select(used_cars.columns.map(c => sum(col(c).isNull.cast("int")).alias(c)): _*).show
+Q5)
+val used_cars_by_price = used_cars.groupBy(col("Price_eur")).count()
+used_cars_by_price.show()
+Q6)
+val clean_used_cars1 = used_cars.drop("Fuel_type","Color_slug","Stk_year","Body_type")
+clean_used_cars1.show(10)
+val clean_used_cars2= clean_used_cars1.filter("Manufacture_year>=2000 AND Manufacture_year<=2017")
+clean_used_cars2.show(10)
+val clean_used_cars3 = clean_used_cars2.filter("Maker!= '' AND Model!= ''")
+clean_used_cars3.show(10)
+val clean_used_cars4 = clean_used_cars3.filter("Price_eur>=3000 AND Price_eur<=2000000")
+clean_used_cars4.show(10)
+val clean_used_carsremain = clean_used_cars4.count()
+
+
+val clean_used_cars4_by_maker_model = clean_used_cars4.groupBy(col("Maker"),col("Model"))
+.agg(avg(col("Price_eur")).alias("average_price"))
+.orderBy(col("average_price").desc)
+clean_used_cars4_by_maker_model.show(5)
+
+val clean_used_cars5_by_maker_model = clean_used_cars4.groupBy(col("Maker"),col("Model"))
+.agg(avg(col("Price_eur")).alias("average_price"))
+.orderBy(col("average_price").asc)
+clean_used_cars5_by_maker_model.show(5)
+
+val top5_manufactures = clean_used_cars5_by_maker_model
+.filter("average_price>=3000 AND average_price<=20000")
+.sort(desc("average_price"))
+top5_manufactures.show(10)
+
+val top5_manufactures_intermediate = clean_used_cars5_by_maker_model
+.filter("average_price>=20000 AND average_price<=300000")
+.sort(desc("average_price"))
+top5_manufactures_intermediate.show(5)
+
+val top5_manufactures_luxury = clean_used_cars5_by_maker_model
+.filter("average_price>=300000 AND average_price<=2000000")
+.sort(desc("average_price"))
+top5_manufactures_luxury.show(5)
+
+
+
+top5_manufactures_luxury
+.coalesce(1)
+.write.option("header", true)
+.csv("hdfs://10.128.0.7:8020/BigData/cars_new")
+
+clean_used_cars3
+.coalesce(1)
+.write.option("header", true)
+.csv("hdfs://10.128.0.7:8020/BigData/cars_clean")
+
+
+top5_manufactures
+.coalesce(1)
+.write.option("header", true)
+.csv("hdfs://10.128.0.7:8020/BigData/cars_avg")
+
+top5_manufactures_intermediate
+.coalesce(1)
+.write.option("header", true)
+.csv("hdfs://10.128.0.7:8020/BigData/cars_int")
+
+
+top5_manufactures
+
+top5_manufactures
+.coalesce(1)
+.write.option("header", true)
+.csv("hdfs://10.128.0.7:8020/BigData/cars_avg1")
+
+
+hadoop fs -ls /BigData
+hadoop fs -ls /BigData/Cars
+haddop fs -ls /BigData/cars/cars_new
+
+hadoop fs -ls /BigData
+hadoop fs -ls /BigData/Cars
+haddop fs -ls /BigData/cars/cars_clean
+
+hadoop fs -ls /BigData/cars_int
+hadoop fs -copyToLocal /BigData/cars_int
+hadoop fs -ls /BigData/cars_int
+
+hadoop fs -ls /BigData/cars_avg
+hadoop fs -copyToLocal /BigData/cars_avg
+hadoop fs -ls /BigData/cars_avg
+
+hadoop fs -ls /BigData/cars_avg1
+hadoop fs -copyToLocal /BigData/cars_avg1
+hadoop fs -ls /BigData/cars_avg1
+
+
+
